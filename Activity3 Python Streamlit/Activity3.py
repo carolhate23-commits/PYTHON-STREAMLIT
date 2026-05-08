@@ -16,6 +16,7 @@ st.write("Point your camera at objects to identify them in real-time.")
 def video_frame_callback(frame):
     img = frame.to_ndarray(format="bgr24")
 
+
     results = model.track(
         img,
         persist=True,
@@ -26,21 +27,28 @@ def video_frame_callback(frame):
     alert_objects = ["cell phone", "person", "cup"] 
     detected_alerts = []
 
-    names = model.names
-    class_ids = results[0].boxes.cls.tolist() if results[0].boxes is not None else []
 
-    for c in class_ids:
-        label = names[int(c)]
-        if label in alert_objects:
-            detected_alerts.append(label)
+    if results and results[0].boxes is not None:
+        names = model.names
+        class_ids = results[0].boxes.cls.tolist()
+        
+        for c in class_ids:
+            label = names[int(c)]
+            if label in alert_objects:
+                detected_alerts.append(label)
 
-    annotated_frame = results[0].plot()
+      
+        annotated_frame = results[0].plot()
+    else:
+       
+        annotated_frame = img
 
     if detected_alerts:
+        unique_alerts = ", ".join(set(detected_alerts))
         cv2.putText(
             annotated_frame,
-            f"ALERT: {', '.join(set(detected_alerts))}",
-            (10, 30),
+            f"ALERT: {unique_alerts}",
+            (10, 50), 
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
             (0, 0, 255),
@@ -48,7 +56,6 @@ def video_frame_callback(frame):
         )
 
     return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
-
 
 webrtc_streamer(
     key="object-detection",
@@ -58,4 +65,4 @@ webrtc_streamer(
         "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
     },
     media_stream_constraints={"video": True, "audio": False},
-) 
+)
