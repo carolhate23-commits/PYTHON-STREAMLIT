@@ -1,24 +1,28 @@
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer
+from streamlit_webrtc import webrtc_streamer, WebRtcMode
 from ultralytics import YOLO
 import av
 import cv2
+import os
 
-# Cache the model so it doesn't reload every rerun
+# Fix OpenCV on Streamlit Cloud
+os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
+
+# Load YOLO model (cached)
 @st.cache_resource
 def load_model():
     return YOLO("yolov8n.pt")
 
 model = load_model()
 
-st.title("🎥 Live Object Detection & Tracing")
+st.title("🎥 Live Object Detection & Tracking")
 st.write("Point your camera at objects to identify them in real-time.")
 
-# Video frame callback
+# Video processing function
 def video_frame_callback(frame):
     img = frame.to_ndarray(format="bgr24")
 
-    # Run YOLOv8 tracking
+    # YOLO tracking
     results = model.track(
         img,
         persist=True,
@@ -26,8 +30,7 @@ def video_frame_callback(frame):
         verbose=False
     )
 
-    # --- ALERT SYSTEM FOR SPECIFIC OBJECTS ---
-    alert_objects = ["cell phone", "person", "cup"]  # you can edit this
+    alert_objects = ["cell phone", "person", "cup"]
     detected_alerts = []
 
     names = model.names
@@ -38,10 +41,8 @@ def video_frame_callback(frame):
         if label in alert_objects:
             detected_alerts.append(label)
 
-    # Annotate frame
     annotated_frame = results[0].plot()
 
-    # --- DISPLAY ALERT ON VIDEO ---
     if detected_alerts:
         cv2.putText(
             annotated_frame,
@@ -56,13 +57,19 @@ def video_frame_callback(frame):
     return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
 
 
-# Start WebRTC streamer
+# WebRTC (FIXED but NO requirement changes)
 webrtc_streamer(
     key="object-detection",
+    mode=WebRtcMode.SENDRECV,
     video_frame_callback=video_frame_callback,
-    async_processing=True,  # smoother performance
+    async_processing=True,
     rtc_configuration={
-        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+        "iceServers": [
+            {"urls": ["stun:stun.l.google.com:19302"]}
+        ]
     },
-    media_stream_constraints={"video": True, "audio": False},
+    media_stream_constraints={
+        "video": True,
+        "audio": False
+    },
 )
