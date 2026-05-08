@@ -23,7 +23,7 @@ def video_frame_callback(frame):
         verbose=False
     )
 
-    alert_objects = ["cell phone", "person", "cup"]  # you can edit this
+    alert_objects = ["cell phone", "person", "cup"] 
     detected_alerts = []
 
     names = model.names
